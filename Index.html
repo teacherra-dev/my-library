@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root { --bg:#F3F6F5; --card:#FFFFFF; --line:#D5DEDB; --fg:#14302A; --muted:#5A6E69; --accent:#0E6E64;
+          --ok:#1E7B45; --okbg:#E2F3E8; --warn:#7A5000; --warnbg:#FFE9A8; --risk:#9F1C12; --riskbg:#FFD3CF; --over:#FFFFFF; --overbg:#B3261E; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; font-size:16px; line-height:1.55; }
+  .wrap { max-width:560px; margin:0 auto; padding:20px 16px 40px; display:flex; flex-direction:column; gap:16px; }
+  h1 { font-size:1.4rem; margin:0; }
+  .muted { color:var(--muted); font-size:.9rem; margin:4px 0 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  form { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  label { display:grid; gap:4px; font-size:.85rem; color:var(--muted); }
+  label.full { grid-column:1 / -1; }
+  input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; width:100%; }
+  button { grid-column:1 / -1; font:inherit; font-weight:700; padding:12px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.6; }
+  .msg { font-size:.92rem; }
+  .item { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 0; border-top:1px solid var(--line); }
+  .item:first-child { border-top:0; }
+  .subj { font-weight:700; }
+  .sub { font-size:.82rem; color:var(--muted); }
+  .num { font-size:1.4rem; font-weight:700; text-align:right; white-space:nowrap; }
+  .chip { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 9px; border-radius:999px; margin-top:2px; }
+  .s-초록 { color:var(--ok); background:var(--okbg); } .s-노랑 { color:var(--warn); background:var(--warnbg); }
+  .s-빨강 { color:var(--risk); background:var(--riskbg); } .s-부족 { color:var(--over); background:var(--overbg); }
+  .note { font-size:.85rem; color:var(--muted); display:grid; gap:4px; }
+  .when { font-size:.85rem; font-weight:700; color:var(--fg); margin-top:2px; }
+  h2 { font-size:1.05rem; margin:0 0 4px; }
+  .tt { width:100%; border-collapse:collapse; table-layout:fixed; font-size:.78rem; margin-top:8px; }
+  .tt th { color:var(--muted); font-weight:600; padding:4px 0; }
+  .tt td { border:1px solid var(--line); height:40px; text-align:center; vertical-align:middle; padding:2px; line-height:1.2; word-break:keep-all; }
+  .tt td.p { color:var(--muted); border:0; width:30px; }
+  .tt .today { color:var(--accent); }
+  .tt td.s-노랑, .tt td.s-빨강 { font-weight:700; }
+  .gauge { height:8px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:6px; }
+  .gauge i { display:block; height:100%; border-radius:99px; }
+  .g-초록 { background:var(--ok); } .g-노랑 { background:#E0A800; } .g-빨강, .g-부족 { background:var(--risk); }
+  .gcap { font-size:.75rem; color:var(--muted); margin-top:2px; }
+  .adj { display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--muted); margin-top:6px; }
+  .adj input { width:64px; padding:4px 8px; font-size:.9rem; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1 id="title">내 과목 출석 확인</h1>
+    <p class="muted">과목마다 앞으로 몇 번 더 빠져도 되는지 보여 줍니다. 본인(또는 자녀) 정보만 볼 수 있습니다.</p>
+    <p class="muted">처음 열었을 때 브라우저 메뉴에서 <b>홈 화면에 추가</b>를 누르면 앱처럼 바로 열 수 있습니다.</p>
+  </div>
+  <div class="card">
+    <form id="f">
+      <label>반<input id="ban" inputmode="numeric" autocomplete="off" required></label>
+      <label>번호<input id="no" inputmode="numeric" autocomplete="off" required></label>
+      <label class="full">개인 확인 코드(담임 선생님께 받은 6자리)<input id="code" autocomplete="off" autocapitalize="characters" required></label>
+      <button id="go" type="submit">확인하기</button>
+    </form>
+    <p class="msg" id="msg" hidden></p>
+  </div>
+  <div class="card" id="must" hidden>
+    <h2>이 시간은 꼭 출석하세요</h2>
+    <div class="muted" id="mustNote"></div>
+    <table class="tt" id="tt"></table>
+  </div>
+  <div class="card" id="result" hidden>
+    <div class="muted" id="who"></div>
+    <div id="list"></div>
+  </div>
+  <div class="note">
+    <div>· 과목마다 학점당 수업 수(1학점 16회)의 2/3 이상 출석해야 그 과목이 이수됩니다.</div>
+    <div>· 기준보다 더 빠지면 추가학습을 해야 하고, 마치지 못하면 미이수가 됩니다.</div>
+    <div>· 대입 면접·실기 응시 등은 출석인정이 될 수 있으니 미리 담임 선생님께 알려 주세요.</div>
+    <div>· 숫자는 기준일(지난달 출결 마감)까지의 나이스 출결입니다. 기준일 뒤에 그 과목에서 빠진 수업이 있으면 '기준일 뒤 빠진 수'에 넣어 보세요. 이 화면에서만 계산되고 저장되지 않습니다.</div>
+  </div>
+</div>
+<script>
+  var f = document.getElementById('f'), go = document.getElementById('go'), msg = document.getElementById('msg');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    go.disabled = true; go.textContent = '확인 중…'; msg.hidden = true;
+    google.script.run.withSuccessHandler(show).withFailureHandler(function (err) {
+      go.disabled = false; go.textContent = '확인하기'; msg.textContent = '잠시 뒤 다시 시도해 주세요.'; msg.hidden = false;
+    }).lookup(val('ban'), val('no'), val('code'));
+  });
+  function val(id) { return document.getElementById(id).value; }
+  function show(r) {
+    go.disabled = false; go.textContent = '확인하기';
+    if (!r.ok) { msg.textContent = r.msg; msg.hidden = false; document.getElementById('result').hidden = true; return; }
+    if (r.school) document.getElementById('title').textContent = r.school + ' 내 과목 출석 확인';
+    document.getElementById('who').textContent = r.name + ' 학생 · 기준일 ' + (r.date || '-');
+    R = r; ADJ = {};
+    renderList();
+    document.getElementById('result').hidden = false;
+  }
+  var R = null, ADJ = {};
+  function statusOf(m) { return m < 0 ? '부족' : m <= R.red ? '빨강' : m <= R.yellow ? '노랑' : '초록'; }
+  function current(x) {
+    var m = x.margin - (ADJ[x.subj] || 0);
+    var st = x.margin < 0 ? x.status : statusOf(m);
+    return { m: m, status: st };
+  }
+  function renderList() {
+    var r = R, list = document.getElementById('list'); list.textContent = '';
+    if (!r.items.length) { var p = document.createElement('p'); p.textContent = r.msg || ''; list.appendChild(p); }
+    r.items.forEach(function (x) {
+      var c = current(x);
+      var row = document.createElement('div'); row.className = 'item';
+      var left = document.createElement('div');
+      var s = document.createElement('div'); s.className = 'subj'; s.textContent = x.subj;
+      var sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = '학기 수업 ' + x.tot + '회 중 꼭 출석 ' + x.need + '회';
+      left.appendChild(s); left.appendChild(sub);
+      if (x.slots && x.slots.length) {
+        var w = document.createElement('div'); w.className = 'when';
+        w.textContent = '수업: ' + x.slots.map(function (t) { return t.d + ' ' + t.p + '교시'; }).join(' · ');
+        left.appendChild(w);
+      }
+      var allow = Math.max(x.tot - x.need, 0), used = x.miss + (ADJ[x.subj] || 0);
+      var gw = document.createElement('div'); gw.className = 'gauge';
+      var gi = document.createElement('i'); gi.className = 'g-' + c.status;
+      gi.style.width = (allow ? Math.min(100, Math.round(used / allow * 100)) : 100) + '%';
+      gw.appendChild(gi); left.appendChild(gw);
+      var gc = document.createElement('div'); gc.className = 'gcap';
+      gc.textContent = '학기 동안 빠질 수 있는 ' + allow + '번 중 ' + used + '번 사용';
+      left.appendChild(gc);
+      var chip = document.createElement('span'); chip.className = 'chip s-' + c.status;
+      chip.textContent = c.status === '부족' ? (x.extra ? '추가학습 진행 중' : '기준 미달: 담임 상담') : c.status === '빨강' ? '위험' : c.status === '노랑' ? '주의' : '여유';
+      left.appendChild(chip);
+      if (x.extra) {
+        var ex = document.createElement('div'); ex.className = 'sub';
+        var ok = x.extra.done >= Math.ceil(x.extra.need * 2 / 3);
+        ex.textContent = '추가학습 ' + x.extra.need + '차시 중 ' + x.extra.done + '차시 완료' + (ok ? ' (이수 요건 충족)' : (x.extra.due ? ' · 마감 ' + x.extra.due : ''));
+        left.appendChild(ex);
+      }
+      if (x.margin >= 0) {
+        var adj = document.createElement('label'); adj.className = 'adj';
+        adj.appendChild(document.createTextNode('기준일 뒤 빠진 수'));
+        var inp = document.createElement('input'); inp.type = 'number'; inp.min = '0'; inp.inputMode = 'numeric';
+        inp.value = ADJ[x.subj] || '';
+        inp.addEventListener('change', function () { var v = parseInt(inp.value, 10); ADJ[x.subj] = isNaN(v) || v < 0 ? 0 : v; renderList(); });
+        adj.appendChild(inp); left.appendChild(adj);
+      }
+      var right = document.createElement('div'); right.className = 'num';
+      right.textContent = c.m < 0 ? (-c.m) + '회 부족' : c.m + '회';
+      var cap = document.createElement('div'); cap.className = 'sub';
+      cap.textContent = c.m < 0 ? (x.margin < 0 ? '추가학습 대상' : '기준 넘김: 담임 상담') : '더 빠져도 됨';
+      right.appendChild(cap);
+      row.appendChild(left); row.appendChild(right); list.appendChild(row);
+    });
+    drawGrid(r);
+  }
+  function drawGrid(r) {
+    var days = ['월', '화', '수', '목', '금'], risky = r.items.map(function (x) { var c = current(x); return { subj: x.subj, slots: x.slots, status: x.margin >= 0 && c.m < 0 ? '빨강' : c.status }; }).filter(function (x) { return (x.status === '빨강' || x.status === '노랑') && x.slots && x.slots.length; });
+    var box = document.getElementById('must');
+    if (!risky.length) { box.hidden = true; return; }
+    var maxP = r.periods || 7, cell = {};
+    risky.forEach(function (x) { x.slots.forEach(function (t) { cell[t.d + t.p] = x; if (t.p > maxP) maxP = t.p; }); });
+    var tt = document.getElementById('tt'); tt.textContent = '';
+    var today = days[(new Date().getDay() + 6) % 7];
+    var hr = document.createElement('tr'); hr.appendChild(document.createElement('th'));
+    days.forEach(function (d) { var th = document.createElement('th'); th.textContent = d; if (d === today) th.className = 'today'; hr.appendChild(th); });
+    tt.appendChild(hr);
+    for (var p = 1; p <= maxP; p++) {
+      var tr = document.createElement('tr'), pc = document.createElement('td'); pc.className = 'p'; pc.textContent = p; tr.appendChild(pc);
+      days.forEach(function (d) {
+        var td = document.createElement('td'), x = cell[d + p];
+        if (x) { td.className = 's-' + x.status; td.textContent = x.subj; }
+        tr.appendChild(td);
+      });
+      tt.appendChild(tr);
+    }
+    document.getElementById('mustNote').textContent = '빨강·노랑 과목의 수업 시간입니다. 이 시간에 빠지면 남은 횟수가 줄어듭니다.';
+    box.hidden = false;
+  }
+</script>
+</body>
+</html>
